@@ -1,0 +1,21 @@
+application: parapiglia1
+version: 1
+runtime: java
+#api_version: 1
+
+handlers:
+  - url: /gwtsample/greet/*
+    servlet: com.guarascio.gwtsample.server.GreetingServiceImpl
+    name: greetServlet
+  - url: /gwtsample/magneto/*
+    servlet: com.guarascio.gwtsample.vaadin.MagnetoServlet
+    init_params:
+      UI: com.guarascio.gwtsample.vaadin.MagnetoUI
+      legacyPropertyToString: false
+    name: vaadin
+  - url: /VAADIN/*
+    servlet: com.guarascio.gwtsample.vaadin.MagnetoServlet
+    init_params:
+      UI: com.guarascio.gwtsample.vaadin.MagnetoUI
+      legacyPropertyToString: false
+    name: vaadin
