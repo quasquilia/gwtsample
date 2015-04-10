@@ -1,0 +1,2 @@
+serviceClass: com.guarascio.gwtsample.client.GreetingService
+path: 6B097FC26848105303BC865965EE84B3.gwt.rpc
