@@ -25,7 +25,7 @@
   </system-properties>
 
   <sessions-enabled>true</sessions-enabled>
-  <async-session-persistence enabled="true" />
+  <!-- <async-session-persistence enabled="true" />-->
   <!-- <threadsafe>true</threadsafe> -->
   
   <!--
