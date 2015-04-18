@@ -3,6 +3,7 @@ package com.guarascio.gwtsample.vaadin;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 
 import javax.persistence.EntityManager;
@@ -20,18 +21,27 @@ import com.google.appengine.api.users.User;
 import com.google.appengine.api.users.UserService;
 import com.google.appengine.api.users.UserServiceFactory;
 import com.guarascio.gwtsample.EMF;
+import com.guarascio.gwtsample.captions.impl.Translator;
 import com.guarascio.gwtsample.dao.Greeting;
+import com.vaadin.addon.jpacontainer.EntityContainer;
 import com.vaadin.addon.jpacontainer.JPAContainer;
 import com.vaadin.addon.jpacontainer.provider.CachingMutableLocalEntityProvider;
+import com.vaadin.addon.jpacontainer.provider.MutableLocalEntityProvider;
 import com.vaadin.annotations.Theme;
+import com.vaadin.data.Container;
+import com.vaadin.data.Container.ItemSetChangeEvent;
 import com.vaadin.data.util.GeneratedPropertyContainer;
+import com.vaadin.data.util.IndexedContainer;
+import com.vaadin.event.SelectionEvent;
 import com.vaadin.server.ExternalResource;
 import com.vaadin.server.VaadinRequest;
 import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.Button.ClickEvent;
 import com.vaadin.ui.Grid;
+import com.vaadin.ui.Grid.SelectionMode;
 import com.vaadin.ui.GridLayout;
+import com.vaadin.ui.HorizontalLayout;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.Link;
 import com.vaadin.ui.TextField;
@@ -47,51 +57,105 @@ public class MagnetoUI extends UI implements Button.ClickListener {
 	private Grid grid;
 	private JPAContainer<Greeting> container;
 	
+	private Translator translator = new Translator();
+	
 	@Override
 	protected void init(VaadinRequest request) {
+		
+		String lang = request.getParameter("lang");		
+		translator.init(lang != null ? Locale.forLanguageTag(lang) : null);
+		
 		final VerticalLayout layout = new VerticalLayout();
 		
 		layout.setMargin(true);
 		setContent(layout);
 		
-		UserService userService = UserServiceFactory.getUserService();
+		UserService userService = UserServiceFactory.getUserService();		
 		String logoutURL = userService.createLogoutURL(request.getParameter("v-loc"));		
-		GridLayout l = new GridLayout(1, 1);
-		Link link = new Link("Logout", new ExternalResource(logoutURL));		
+		GridLayout l = new GridLayout(1, 1);				
+		Link link = new Link(translator.getCaption("logout"), new ExternalResource(logoutURL));		
 		l.addComponent(link);
 		l.setComponentAlignment(link, Alignment.TOP_RIGHT);
 		layout.addComponent(l);
 		
+		HorizontalLayout buttons = new HorizontalLayout();
+		final Button add = new Button(translator.getCaption("crud.add"), new Button.ClickListener() {
+			
+			@Override
+			public void buttonClick(ClickEvent event) {
+				
+				if(!grid.isEditorEnabled() || grid.isEditorActive()) {
+					return;
+				}
+				
+				UserService userService = UserServiceFactory.getUserService();
+				User user = userService.getCurrentUser();
+				
+				String userName = user.getNickname();				
+				Object id = grid.addRow("", userName, new Date());
+				grid.editItem(id);				
+			}
+		});
+		buttons.addComponent(add);
+
+		Button cancel = new Button(translator.getCaption("crud.cancel"), new Button.ClickListener() {			
+			@Override
+			public void buttonClick(ClickEvent event) {
+				grid.cancelEditor();
+			}
+		});		
+		buttons.addComponent(cancel);
+		
+		layout.addComponent(buttons);
+		
 		grid = new Grid();
+		grid.setEditorSaveCaption(translator.getCaption("crud.save"));
+		grid.setEditorCancelCaption(translator.getCaption("crud.cancel"));
+		grid.setSelectionMode(SelectionMode.MULTI);
 		
-		container = new JPAContainer<Greeting>(Greeting.class);
-		
+		container = new JPAContainer<Greeting>(Greeting.class);		
+//		MutableLocalEntityProvider<Greeting> entityProvider = new MutableLocalEntityProvider<Greeting>(Greeting.class, em);
 		CachingMutableLocalEntityProvider<Greeting> entityProvider =
 			    new CachingMutableLocalEntityProvider<Greeting>(Greeting.class, em);
-		container.setEntityProvider(entityProvider);
-		GeneratedPropertyContainer filteredColumnsContainer = new GeneratedPropertyContainer(container);		
 		
+		container.setEntityProvider(entityProvider);
+//		final Container.Indexed filteredColumnsContainer = container;
+		final GeneratedPropertyContainer filteredColumnsContainer = new GeneratedPropertyContainer(container);				
 		for (Object propId : filteredColumnsContainer.getContainerPropertyIds()) {
 			filteredColumnsContainer.removeContainerProperty(propId);
 		} 
 		filteredColumnsContainer.addContainerProperty("date", Date.class, null);
 		filteredColumnsContainer.addContainerProperty("userName", String.class, "");
-		filteredColumnsContainer.addContainerProperty("message", String.class, "");
+		filteredColumnsContainer.addContainerProperty("message", String.class, "");		
+		Button delete = new Button(translator.getCaption("crud.delete"), new Button.ClickListener() {			
+			@Override
+			public void buttonClick(ClickEvent event) {
+				for(Object id : grid.getSelectedRows()) {
+					if (id != null) {
+						grid.deselect(id);
+						filteredColumnsContainer.removeItem(id);
+					}
+				}
+			}			
+		});		
+		buttons.addComponent(delete);
+
 		
 		grid.setContainerDataSource(filteredColumnsContainer);
-		
-		grid.setWidth("100%");
-		grid.setHeight("400px");
-		grid.sort("date");
-		
+		grid.setSizeFull();
+		grid.setEditorEnabled(true);
 		layout.addComponent(grid);
-		
-		text = new TextField("Add a comment");
-		
-		layout.addComponent(text);
-		Button button = new Button("Submit");
-		button.addClickListener(this);
-		layout.addComponent(button);
+//		grid.setWidth("100%");
+//		grid.setHeight("400px");
+//		grid.sort("date");
+//		grid.setEditorEnabled(true);
+//
+//		text = new TextField("Add a comment");
+//		
+//		layout.addComponent(text);
+//		Button button = new Button("Submit");
+//		button.addClickListener(this);
+//		layout.addComponent(button);
 	}
 	
 	public void buttonClick(ClickEvent event) {
@@ -111,7 +175,7 @@ public class MagnetoUI extends UI implements Button.ClickListener {
 			em.getTransaction().commit();
 			
 	    } finally {			    	
-	        em.close();			
+	        //em.close();			
 	        container.refresh();
 	        grid.scrollToEnd();
 	    }		
